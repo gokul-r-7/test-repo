@@ -1,0 +1,290 @@
+SourceSystemId: INT024_TEST_DATA
+MetadataType: INT024_TEST_DATA
+
+host_url: emzo-dev1.fa.us6.oraclecloud.com
+
+auth_api_parameter:
+  auth_api_name: hcm
+  auth_body:
+    aud: "{host_url}"
+    exp: ""
+    iat: ""
+    iss: aws.worley.com
+    sub: "{username}"
+  auth_certificate_key: worley-systemintegration-sydney-stg-eightfold-hcm-oauth-certificate
+  auth_expire: 600
+  auth_headers:
+    alg: RS256
+    typ: JWT
+    x5t: ""
+  auth_jwt_token_key: worley-systemintegration-sydney-stg-eightfold-hcm-oauth-token
+  auth_method: null
+  auth_private_key: worley-systemintegration-sydney-stg-eightfold-hcm-oauth-private-key
+  auth_query_params: null
+  auth_ssl_verify: null
+  auth_type: OAuth
+  endpoint: null
+  secret_credentials: worley-systemintegration-sydney-stg-eightfold-hcm-credentials
+
+field_transformations:
+  DateOfBirth:
+    format: "%Y-%m-%d"
+    type: date
+  externalIdentifiers|0|FromDate:
+    format: "%Y-%m-%d %H:%M:%S"
+    type: datetime
+  Salaries|0|DateFrom:
+    format: "%Y-%m-%d"
+    type: date
+  workRelationships|0|assignments|0|managers|0|ManagerAssignmentNumber:
+    prefix: E
+    type: prefix
+  workRelationships|0|assignments|0|ProjectedStartDate:
+    format: "%Y-%m-%d"
+    type: date
+
+lookup_rules:
+  - input_field: Country
+    name: country_lookup
+    query_params:
+      q: "CountryName='{Country}'"
+    resource: /hcmRestApi/resources/11.13.18.05/hcmCountriesLov
+    response_field: TerritoryCode
+    target_field: LegislationCode
+
+  - input_field: Country
+    name: country_countrycode_lookup
+    query_params:
+      q: "CountryName='{Country}'"
+    resource: /hcmRestApi/resources/11.13.18.05/hcmCountriesLov
+    response_field: TerritoryCode
+    target_field: Country
+
+  - input_field: PrimaryLocationName
+    name: location_lookup
+    query_params:
+      q: "LocationName='{PrimaryLocationName}'"
+    resource: /hcmRestApi/resources/11.13.18.05/locations
+    response_field: LocationCode
+    target_field: LocationCode
+
+  - input_field: SalaryBasis
+    name: salary_basis_lookup
+    query_params:
+      q: "SalaryBasisName='{SalaryBasis}'"
+    resource: /hcmRestApi/resources/latest/salaryBases
+    response_field: SalaryBasisId
+    target_field: SalaryBasisId
+
+conditional_field_rules:
+  agency_rate_block:
+    conditions:
+      AgencyBillRate: "__nonempty__"
+      ProposedPersonType: Agency Contractor
+    fields:
+      workRelationships|0|assignments|0|assignmentsEFF|0|CategoryCode: PER_ASG_EIT
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Agency__RateprivateVO|0|amount: AgencyBillRate
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Agency__RateprivateVO|0|currency: Currency
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Agency__RateprivateVO|0|frequency: PayFrequency
+    type: conditional_add
+
+  contractor_rate_block_agency:
+    conditions:
+      ContractorPayRate: "__nonempty__"
+      ProposedPersonType: Agency Contractor
+    fields:
+      workRelationships|0|assignments|0|assignmentsEFF|0|CategoryCode: PER_ASG_EIT
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|amount: ContractorPayRate
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|currency: Currency
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|frequency: PayFrequency
+    type: conditional_add
+
+  direct_contractor_rate_block:
+    conditions:
+      ContractorPayRate: "__nonempty__"
+      ProposedPersonType: Direct Contractor
+    fields:
+      workRelationships|0|assignments|0|assignmentsEFF|0|CategoryCode: PER_ASG_EIT
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|amount: ContractorPayRate
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|currency: Currency
+      workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|frequency: PayFrequency
+    type: conditional_add
+
+  phones_section:
+    conditions:
+      HomePhone: phones|0
+      MobilePhone: phones|1
+    field_prefixes:
+      - phones|0
+      - phones|1
+    type: field_group
+
+  ssn_block:
+    conditions:
+      SSN: "__nonempty__"
+    fields:
+      nationalIdentifiers|0|LegislationCode: US
+      nationalIdentifiers|0|NationalIdentifierNumber: "__from_csv__:SSN"
+      nationalIdentifiers|0|NationalIdentifierType: SSN
+    type: conditional_add_default
+
+pre_validation_rules:
+  - active_status: ACTIVE
+    expand: workRelationships.assignments
+    name: Check by WPEmployeeID
+    query_template: "PersonNumber={WPEmployeeID}"
+    skip_error_message: Employee already exists (WPEmployeeID validation)
+
+  - active_status: ACTIVE
+    expand: nationalIdentifiers,workRelationships.assignments
+    name: Check by SSN
+    query_template: "(nationalIdentifiers.NationalIdentifierNumber='{SSN}') and (nationalIdentifiers.NationalIdentifierType='SSN')"
+    skip_error_message: Employee already exists (SSN validation)
+
+  - active_status: ACTIVE
+    expand: nationalIdentifiers,workRelationships.assignments
+    name: Check by Email/Phone
+    query_template: "(emails.EmailAddress='{Email}') or (phones.PhoneNumber='{Phone}')"
+    skip_error_message: Employee already exists (Email/Phone validation)
+
+  - active_status: ACTIVE
+    expand: nationalIdentifiers,workRelationships.assignments,emails,phones,names
+    name: Check by Name+DOB
+    query_template: "(names.FirstName like '%{FirstInitial}%') and (names.LastName like '{LastName}%') and (DateOfBirth='{DateOfBirth}')"
+    skip_error_message: Employee already exists (Name & DOB validation)
+
+pre_validation_rules_old:
+  - action_code: ADD_PWK_EMP
+    active_status: ACTIVE
+    assignment_path: [workRelationships, assignments]
+    assignment_status_field: AssignmentStatusType
+    conditions:
+      WPEmployeeID: "__nonempty__"
+    match_field: PersonNumber
+    match_from_field: WPEmployeeID
+    name: by_employee_id
+    query_params:
+      expand: workRelationships.assignments
+      q: "PersonNumber={WPEmployeeID}"
+    resource: /hcmRestApi/resources/11.13.18.05/workers
+    skip_error_message: Employee already exists
+
+  - action_code: ADD_PWK_EMP
+    active_status: ACTIVE
+    assignment_path: [workRelationships, assignments]
+    assignment_status_field: AssignmentStatusType
+    conditions:
+      SSN: "__nonempty__"
+      WPEmployeeID: "__empty__"
+    match_field: PersonNumber
+    match_from_field: WPEmployeeID
+    name: by_ssn
+    query_params:
+      expand: nationalIdentifiers,workRelationships.assignments
+      q: "(nationalIdentifiers.NationalIdentifierNumber='{SSN}') and (nationalIdentifiers.NationalIdentifierType='SSN')"
+    resource: /hcmRestApi/resources/11.13.18.05/workers
+    skip_error_message: Employee already exists
+
+  - action_code: ADD_PWK_EMP
+    active_status: ACTIVE
+    assignment_path: [workRelationships, assignments]
+    assignment_status_field: AssignmentStatusType
+    conditions:
+      Email: "__nonempty__"
+      WPEmployeeID: "__empty__"
+      __or__:
+        - MobilePhone
+        - HomePhone
+    match_field_any:
+      - emails.EmailAddress
+      - phones.PhoneNumber
+    name: by_email_or_phone
+    query_params:
+      expand: emails,phones,workRelationships.assignments
+      q: "(emails.EmailAddress='{Email}') or (phones.PhoneNumber like '%{MobilePhoneLast7}') or (phones.PhoneNumber like '%{HomePhoneLast7}')"
+    resource: /hcmRestApi/resources/11.13.18.05/workers
+    skip_error_message: Employee already exists
+
+  - action_code: ADD_PWK_EMP
+    active_status: ACTIVE
+    assignment_path: [workRelationships, assignments]
+    assignment_status_field: AssignmentStatusType
+    conditions:
+      Birthdate: "__nonempty__"
+      FirstName: "__nonempty__"
+      LastName: "__nonempty__"
+      WPEmployeeID: "__empty__"
+    match_field_all:
+      - names.FirstName
+      - names.LastName
+      - DateOfBirth
+    name: by_name_dob
+    query_params:
+      expand: names,workRelationships.assignments
+      q: "(names.FirstName like '{FirstInitial}%') and (names.LastName like '{LastName}%') and (DateOfBirth='{Birthdate}')"
+    resource: /hcmRestApi/resources/11.13.18.05/workers
+    skip_error_message: Employee already exists
+
+  - action_code: ADD_PEN_WKR
+    conditions:
+      WPEmployeeID: "__empty__"
+    name: default_add_pen_wkr
+
+salaries_payload_json:
+  Salaries|0|ActionId: "300000000342459"
+  Salaries|0|AssignmentId: ""
+  Salaries|0|CurrencyCode: Currency
+  Salaries|0|DateFrom: StartDate
+  Salaries|0|SalaryAmount: BasePay
+  Salaries|0|SalaryBasisId: SalaryBasis
+  Salaries|0|SalaryFrequencyCode: PayFrequency
+
+workers_payload_json:
+  addresses|0|AddressLine1: Address
+  addresses|0|AddressLine2: Address2
+  addresses|0|AddressType: HOME
+  addresses|0|Country: Country
+  addresses|0|PostalCode: ZipCode
+  addresses|0|Region1: County
+  addresses|0|Region2: State
+  addresses|0|Region3: ""
+  addresses|0|TownOrCity: City
+  DateOfBirth: Birthdate
+  emails|0|EmailAddress: Email
+  emails|0|EmailType: H1
+  externalIdentifiers|0|ExternalIdentifierNumber: TaleoCandidateID
+  externalIdentifiers|0|ExternalIdentifierSequence: "4"
+  externalIdentifiers|0|ExternalIdentifierType: WOR_TALEO_CANDIDATE_NUM
+  externalIdentifiers|0|FromDate: StartDate
+  names|0|FirstName: FirstName
+  names|0|LastName: LastName
+  names|0|LegislationCode: Country
+  names|0|MiddleNames: MiddleName
+  nationalIdentifiers|0|LegislationCode: US
+  nationalIdentifiers|0|NationalIdentifierNumber: SSN
+  phones|0|PhoneNumber: HomePhone
+  phones|0|PhoneType: H1
+  phones|1|PhoneNumber: MobilePhone
+  phones|1|PhoneType: M1
+  workRelationships|0|assignments|0|ActionCode: ActionCode
+  workRelationships|0|assignments|0|AssignmentCategory: FR
+  workRelationships|0|assignments|0|assignmentsEFF|0|CategoryCode: PER_ASG_EIT
+  workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Agency__RateprivateVO|0|amount: AgencyBillRate
+  workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Agency__RateprivateVO|0|currency: Currency
+  workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Agency__RateprivateVO|0|frequency: PayFrequency
+  workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|amount: ContractorPayRate
+  workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|currency: Currency
+  workRelationships|0|assignments|0|assignmentsEFF|0|InformationWOR__Contractor__RateprivateVO|0|frequency: PayFrequency
+  workRelationships|0|assignments|0|BusinessUnitName: WP US USA OU
+  workRelationships|0|assignments|0|DepartmentName: Department
+  workRelationships|0|assignments|0|JobCode: GlobalJobTitle
+  workRelationships|0|assignments|0|LocationCode: PrimaryLocationName
+  workRelationships|0|assignments|0|managers|0|ManagerAssignmentNumber: WorkAssignmentManager
+  workRelationships|0|assignments|0|managers|0|ManagerType: LINE_MANAGER
+  workRelationships|0|assignments|0|PermanentTemporary: R
+  workRelationships|0|assignments|0|ProjectedStartDate: StartDate
+  workRelationships|0|assignments|0|ProposedUserPersonType: ProposedPersonType
+  workRelationships|0|LegalEmployerName: LegalEmployer
+  workRelationships|0|WorkerType: P
+  workRelationships|0|assignments|0|GradeCode: JobGrade
+  workRelationships|0|assignments|0|WorkerCategory: WorkerCategory
