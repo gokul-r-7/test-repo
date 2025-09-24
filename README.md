@@ -65,3 +65,102 @@ Here’s a professionally written version of the **Minutes of Meeting (MoM)** ba
 ---
 
 Let me know if you'd like this in a downloadable format (PDF/Word), or need help preparing a presentation or follow-up email.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Here's a structured and concise **Minutes of Meeting (MoM)** for the discussion that took place on **Tuesday**, summarizing both technical and strategic points from the discussions, particularly with Raju:
+
+---
+
+## **Minutes of Meeting – Tuesday**
+
+### **1. Role-Based Access Control (RBAC) for Archived Data & Validation Reports**
+
+#### **Discussion Summary:**
+
+* **Objective:** Restrict access to validation reports and archived data in **Amazon QuickSight** based on user roles and application ownership.
+* **Solution Proposed:**
+
+  * Implement **RBAC using AWS Lake Formation** at the **Glue Data Catalog** and **S3** levels.
+  * This would provide fine-grained access control to specific datasets and folders based on user/application roles.
+
+#### **Key Points:**
+
+* Validation and archived reports to be segregated by application.
+* Access control managed via **Lake Formation permissions**, not only QuickSight.
+* This will ensure only authorized users can access specific reports and historical data.
+
+#### **Action Owner:**
+
+* **Gokul** – To explore feasibility and lead implementation of Lake Formation-based access control.
+
+---
+
+### **2. Airflow DAG Design Enhancements**
+
+#### **Current Implementation:**
+
+* **Manual Trigger via Airflow UI** for both **Active** and **Retirement Archival** use cases.
+* Input configurations are passed manually.
+
+#### **Proposed Changes:**
+
+##### **Active Archival:**
+
+* **Input YAMLs to be stored in GitLab.**
+* Changes to YAML will trigger **CI/CD pipeline**, which in turn triggers the **Airflow DAG**.
+* Airflow DAG should consume the YAML content as its input config.
+* Can be scheduled **daily**, but should only run when YAML input changes.
+
+##### **Retirement Archival:**
+
+* Will continue to be **manually triggered** via Airflow UI.
+* No schedule needed – configurations passed manually as before.
+
+#### **Action Owners:**
+
+* **Dheena** – Set up CI/CD integration to trigger Airflow DAG from GitLab YAML changes.
+* **Prasanth & Gokul** – Modify DAG code to support both archival types and handle input formats accordingly.
+
+---
+
+### **3. Capturing User Identity Dynamically in Audit Logs**
+
+#### **Objective:**
+
+* Eliminate manual input of user/email in audit logs.
+* Automatically capture the **IAM or Airflow user identity** who triggered the DAG.
+
+#### **Pending Discussion:**
+
+* This point was **not yet discussed with Raju**.
+
+#### **Action Owner:**
+
+* **Gokul** – To explore dynamic user capture from **Airflow context**, possibly leveraging IAM role mappings or execution metadata.
+
+---
+
+### **Additional Notes:**
+
+* The implementation of **AWS Lake Formation** is **not yet confirmed** for the project but identified as a strong candidate for access control.
+* Audit logs are still under review for migration to **PostgreSQL** for structured querying and better schema design (discussed in the prior Friday meeting).
+
+---
+
+Let me know if you need this converted into a document or email format.
+
