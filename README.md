@@ -233,3 +233,68 @@ The goal is to automatically capture the **Airflow user or IAM user identity** a
 
 Let me know if you’d like to convert any of these into **epics** or link them with previous DQ/audit stories for better Jira organization.
 
+
+-----------------------------------------------------------
+
+
+Here are two well-written, technical JIRA task descriptions based on your requirements:
+
+---
+
+### **JIRA Task 1: Implement Glue Job to Update Retention Policy on Archived Data**
+
+**Description:**
+
+Currently, the data archival process is managed by an existing Airflow DAG that triggers a Glue job to archive data from source RDBMS tables to the target data store. As part of the archival process, a `retention_policy` column is appended to each record to indicate its data retention classification.
+
+This task involves developing a new AWS Glue job that will programmatically update the `retention_policy` column for all archived records based on a new retention policy provided as input.
+
+**Scope of Work:**
+
+* Develop a parameterized Glue job that:
+
+  * Reads archived data from the target data store (e.g., S3, Redshift, or another destination used in the archival process).
+  * Updates the `retention_policy` column in each record based on the new input policy (passed as a job parameter or through a config file).
+  * Supports filtering by table, partition, or time range to allow partial updates if needed.
+  * Writes the updated data back to the target store, either in-place or to a new location based on configuration.
+* Integrate this Glue job into the existing archival DAG (if required) or make it available for ad-hoc execution.
+* Add logging and error handling for data consistency validation.
+
+**Deliverables:**
+
+* Glue job script(s)
+* Input parameter schema or config file format
+* Documentation for job execution and integration
+
+---
+
+### **JIRA Task 2: Implement DAG Factory for Data Archival Pipeline**
+
+**Description:**
+
+To streamline the creation and deployment of data archival DAGs, implement a generic DAG factory that dynamically generates Airflow DAGs for active archival pipelines based on configuration defined in a YAML file.
+
+The DAG factory will serve as a reusable and configurable component that allows teams to easily onboard new datasets to the archival process without duplicating code.
+
+**Scope of Work:**
+
+* Develop a DAG factory script that:
+
+  * Parses a YAML configuration file containing metadata such as source table, target location, schedule, retention policy, archival mode, etc.
+  * Dynamically generates and registers an Airflow DAG for each config entry.
+  * Supports configuration-driven scheduling (cron or interval), notifications, SLA settings, and tagging.
+  * Integrates with the existing archival Glue job to trigger archival logic per config.
+* Ensure modular and extensible design to support future features such as row-level filtering, partitioning strategy, or data quality checks.
+
+**Deliverables:**
+
+* DAG factory implementation script
+* Example YAML config files
+* Documentation on how to define and register new archival pipelines using the factory
+* Unit tests and Airflow integration validation
+
+---
+
+Let me know if you'd like these formatted for a specific ticketing system or with custom fields (e.g., "Acceptance Criteria", "Definition of Done", etc.).
+
+
